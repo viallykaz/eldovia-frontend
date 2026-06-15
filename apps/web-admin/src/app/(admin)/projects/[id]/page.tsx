@@ -9,14 +9,7 @@ import {
   approveInvestment, rejectInvestment, changeOperationalStatus, addDirectInvestment,
   getUsers, PROJECT_CATEGORIES, PROJECT_STATUSES, type Project, type Investment, type AdminUser,
 } from '@/lib/api';
-
-const fmt = (n: number, currency = 'USD') => {
-  try {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency, maximumFractionDigits: 0 }).format(n);
-  } catch {
-    return `${currency} ${n.toLocaleString()}`;
-  }
-};
+import { fetchUSDRates, convertCurrency, fmtCurrency } from '@/lib/currency';
 
 // ─── Operational status cycles per category ───────────────────────────────────
 const STATUS_CYCLES: Record<string, string[]> = {
@@ -122,12 +115,14 @@ function StatusCycle({ category, current, onSelect }: {
 // ─── Investment detail panel ──────────────────────────────────────────────────
 function InvestmentDetailPanel({
   investment,
+  projectCurrency,
   onClose,
   onApprove,
   onStartReject,
   actionLoading,
 }: {
   investment: Investment;
+  projectCurrency: string;
   onClose: () => void;
   onApprove: (id: string) => void;
   onStartReject: (id: string) => void;
@@ -174,7 +169,7 @@ function InvestmentDetailPanel({
           <div>
             <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Amount</p>
             <p className="text-2xl font-bold text-gray-900">
-              {new Intl.NumberFormat('en-US', { style: 'currency', currency: investment.currency || 'USD', maximumFractionDigits: 0 }).format(Number(investment.amount))}
+              {fmtCurrency(Number(investment.amount), investment.currency || projectCurrency)}
             </p>
           </div>
 
@@ -273,6 +268,7 @@ export default function EditProjectPage() {
   const [invLoading, setInvLoading] = useState(false);
   const [statusChanging, setStatusChanging] = useState(false);
   const [pendingLifecycleStatus, setPendingLifecycleStatus] = useState<string | null>(null);
+  const [usdRates, setUsdRates] = useState<Record<string, number> | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [rejectId, setRejectId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState('');
@@ -333,6 +329,10 @@ export default function EditProjectPage() {
     const t = setTimeout(() => setSaved(false), 4000);
     return () => clearTimeout(t);
   }, [saved]);
+
+  useEffect(() => {
+    fetchUSDRates().then(setUsdRates).catch(() => {});
+  }, []);
 
   function set(key: string, value: string | boolean) {
     setSaved(false);
@@ -491,6 +491,7 @@ export default function EditProjectPage() {
     {selectedInvestment && (
       <InvestmentDetailPanel
         investment={selectedInvestment}
+        projectCurrency={project.currency}
         onClose={() => setSelectedInvestment(null)}
         onApprove={handleApprove}
         onStartReject={(id) => { setRejectId(id); setRejectReason(''); setSelectedInvestment(null); }}
@@ -726,17 +727,28 @@ export default function EditProjectPage() {
           <div className="grid grid-cols-3 gap-4 mb-5">
             <div className="rounded-lg bg-gray-50 p-3">
               <p className="text-xs text-gray-500 mb-1">Total Raised</p>
-              <p className="text-lg font-bold text-gray-900">{fmt(totalRaised, project.currency)}</p>
+              <p className="text-lg font-bold text-gray-900">{fmtCurrency(totalRaised, project.currency)}</p>
+              {usdRates && project.currency !== 'USD' && (
+                <p className="text-[10px] text-gray-400 mt-0.5">
+                  ≈ {fmtCurrency(convertCurrency(totalRaised, project.currency, 'USD', usdRates), 'USD')}
+                </p>
+              )}
             </div>
             <div className="rounded-lg bg-gray-50 p-3">
-              <p className="text-xs text-gray-500 mb-1">Approved</p>
-              <p className="text-lg font-bold text-gray-900">{approvedInvestments.length}</p>
+              <p className="text-xs text-gray-500 mb-1">Funding Goal</p>
+              <p className="text-lg font-bold text-gray-900">{fmtCurrency(project.fundingGoal, project.currency)}</p>
+              {usdRates && project.currency !== 'USD' && (
+                <p className="text-[10px] text-gray-400 mt-0.5">
+                  ≈ {fmtCurrency(convertCurrency(project.fundingGoal, project.currency, 'USD', usdRates), 'USD')}
+                </p>
+              )}
             </div>
             <div className="rounded-lg bg-gray-50 p-3">
               <p className="text-xs text-gray-500 mb-1">Goal Progress</p>
               <p className="text-lg font-bold text-gray-900">
                 {project.fundingGoal > 0 ? Math.round((project.fundingRaised / project.fundingGoal) * 100) : 0}%
               </p>
+              <p className="text-[10px] text-gray-400 mt-0.5">{approvedInvestments.length} approved</p>
             </div>
           </div>
 
@@ -793,7 +805,7 @@ export default function EditProjectPage() {
                       {inv.contactPhone && <div className="text-gray-400">{inv.contactPhone}</div>}
                       {inv.notes && <div className="text-gray-400 italic max-w-[180px] truncate" title={inv.notes}>&ldquo;{inv.notes}&rdquo;</div>}
                     </td>
-                    <td className="py-2 font-medium text-gray-800">{fmt(Number(inv.amount), inv.currency)}</td>
+                    <td className="py-2 font-medium text-gray-800">{fmtCurrency(Number(inv.amount), inv.currency || project.currency)}</td>
                     <td className="py-2"><InvestmentStatusBadge status={inv.status} /></td>
                     <td className="py-2 text-gray-400">{new Date(inv.investedAt).toLocaleDateString()}</td>
                     <td className="py-2" onClick={(e) => e.stopPropagation()}>

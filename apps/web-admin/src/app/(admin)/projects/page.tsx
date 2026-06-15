@@ -12,6 +12,7 @@ import {
   getProjects, publishProject, archiveProject, restoreProject, permanentDeleteProject,
   Project, PROJECT_STATUSES,
 } from '@/lib/api';
+import { fmtCurrency } from '@/lib/currency';
 
 const STATUS_BADGE: Record<string, { label: string; className: string }> = {
   draft:       { label: 'Draft',       className: 'bg-gray-100 text-gray-600' },
@@ -22,9 +23,6 @@ const STATUS_BADGE: Record<string, { label: string; className: string }> = {
   completed:   { label: 'Completed',   className: 'bg-teal-100 text-teal-700' },
   suspended:   { label: 'Suspended',   className: 'bg-red-100 text-red-600' },
 };
-
-const fmt = (n: number, currency = 'USD') =>
-  new Intl.NumberFormat('en-US', { style: 'currency', currency, maximumFractionDigits: 0 }).format(n);
 
 type ConfirmAction =
   | { type: 'archive'; project: Project }
@@ -268,10 +266,10 @@ export default function ProjectsPage() {
                           </span>
                         </td>
                         <td className="px-4 py-3.5 text-gray-700 text-xs font-mono">
-                          {fmt(project.fundingGoal, project.currency)}
+                          {fmtCurrency(project.fundingGoal, project.currency)}
                         </td>
                         <td className="px-4 py-3.5 text-gray-700 text-xs font-mono">
-                          {fmt(project.fundingRaised, project.currency)}
+                          {fmtCurrency(project.fundingRaised, project.currency)}
                         </td>
                         <td className="px-4 py-3.5">
                           <div className="flex items-center gap-2">

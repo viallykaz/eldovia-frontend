@@ -9,9 +9,6 @@ import {
 import { getToken } from '@/lib/auth';
 import { getAnalytics, type AnalyticsSummary } from '@/lib/api';
 
-const fmt = (n: number) =>
-  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n);
-
 const fmtNum = (n: number) => n.toLocaleString();
 
 function StatCard({
@@ -68,7 +65,7 @@ function MonthBar({ value, max, month, amount }: { value: number; max: number; m
         <div
           className="absolute bottom-0 left-0 right-0 rounded-t bg-orange-400 transition-all"
           style={{ height: `${pct}%` }}
-          title={`${value} investments, ${fmt(amount)}`}
+          title={`${value} investments · ${fmtNum(amount)}`}
         />
       </div>
       <span className="text-[9px] text-gray-400">{label}</span>
@@ -129,7 +126,7 @@ export default function AnalyticsPage() {
       <div>
         <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-3">Investments</p>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard label="Total Approved" value={fmt(data?.investments.totalAmountApproved ?? 0)} icon={DollarSign} iconBg="bg-green-50" iconColor="text-green-600" loading={loading} />
+          <StatCard label="Total Raised" value={fmtNum(data?.investments.totalAmountApproved ?? 0)} sub="sum across all currencies" icon={DollarSign} iconBg="bg-green-50" iconColor="text-green-600" loading={loading} />
           <StatCard label="Unique Investors" value={fmtNum(data?.investments.uniqueInvestors ?? 0)} icon={Users} iconBg="bg-orange-50" iconColor="text-orange-600" loading={loading} />
           <StatCard label="Pending Review" value={fmtNum(data?.investments.pending ?? 0)} icon={Clock} iconBg="bg-yellow-50" iconColor="text-yellow-600" loading={loading} />
           <StatCard label="Approved" value={fmtNum(data?.investments.approved ?? 0)} icon={CheckCircle2} iconBg="bg-green-50" iconColor="text-green-600" loading={loading} sub={`${data?.investments.rejected ?? 0} rejected`} />

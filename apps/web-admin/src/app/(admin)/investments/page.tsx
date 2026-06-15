@@ -6,14 +6,7 @@ import Link from 'next/link';
 import { Loader2, TrendingUp, DollarSign, Users, Sprout, ChevronDown, ChevronRight, X } from 'lucide-react';
 import { getToken } from '@/lib/auth';
 import { getProjects, getProjectInvestments, Project, Investment } from '@/lib/api';
-
-const fmt = (n: number, currency = 'USD') => {
-  try {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency, maximumFractionDigits: 0 }).format(n);
-  } catch {
-    return `${currency} ${n.toLocaleString()}`;
-  }
-};
+import { fetchUSDRates, convertCurrency, fmtCurrency } from '@/lib/currency';
 
 const STATUS_BADGE: Record<string, string> = {
   approved:  'bg-green-100 text-green-700',
@@ -23,8 +16,19 @@ const STATUS_BADGE: Record<string, string> = {
   cancelled: 'bg-gray-100 text-gray-500',
 };
 
-function InvestmentDetailPanel({ investment, onClose }: { investment: Investment; onClose: () => void }) {
+function InvestmentDetailPanel({
+  investment,
+  projectCurrency,
+  usdRates,
+  onClose,
+}: {
+  investment: Investment;
+  projectCurrency: string;
+  usdRates: Record<string, number> | null;
+  onClose: () => void;
+}) {
   const badgeClass = STATUS_BADGE[investment.status] ?? 'bg-gray-100 text-gray-500';
+  const currency = investment.currency || projectCurrency;
   return (
     <>
       <div className="fixed inset-0 z-40 bg-black/20" onClick={onClose} />
@@ -58,7 +62,12 @@ function InvestmentDetailPanel({ investment, onClose }: { investment: Investment
 
           <div>
             <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Amount</p>
-            <p className="text-2xl font-bold text-gray-900">{fmt(Number(investment.amount), investment.currency || 'USD')}</p>
+            <p className="text-2xl font-bold text-gray-900">{fmtCurrency(Number(investment.amount), currency)}</p>
+            {usdRates && currency !== 'USD' && (
+              <p className="text-xs text-gray-400 mt-0.5">
+                ≈ {fmtCurrency(convertCurrency(Number(investment.amount), currency, 'USD', usdRates), 'USD')}
+              </p>
+            )}
           </div>
 
           {investment.notes && (
@@ -115,10 +124,13 @@ export default function InvestmentsPage() {
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [selectedInvestment, setSelectedInvestment] = useState<Investment | null>(null);
+  const [selectedProject, setSelectedProject] = useState<ProjectWithInvestments | null>(null);
+  const [usdRates, setUsdRates] = useState<Record<string, number> | null>(null);
 
   useEffect(() => {
     if (!getToken()) { router.replace('/login'); return; }
     setReady(true);
+    fetchUSDRates().then(setUsdRates).catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -162,7 +174,9 @@ export default function InvestmentsPage() {
   }
 
   const totalInvestors = projects.reduce((s, p) => s + p.investments.length, 0);
-  const totalRaised = projects.reduce((s, p) => s + p.totalRaised, 0);
+  const totalRaisedUSD = usdRates
+    ? projects.reduce((s, p) => s + convertCurrency(p.totalRaised, p.currency, 'USD', usdRates), 0)
+    : null;
   const totalConfirmed = projects.reduce((s, p) => s + p.investments.filter((i) => i.status === 'approved').length, 0);
 
   if (!ready) return <div className="min-h-screen flex items-center justify-center"><div className="text-gray-400">Loading...</div></div>;
@@ -170,7 +184,12 @@ export default function InvestmentsPage() {
   return (
     <>
     {selectedInvestment && (
-      <InvestmentDetailPanel investment={selectedInvestment} onClose={() => setSelectedInvestment(null)} />
+      <InvestmentDetailPanel
+        investment={selectedInvestment}
+        projectCurrency={selectedProject?.currency ?? 'USD'}
+        usdRates={usdRates}
+        onClose={() => { setSelectedInvestment(null); setSelectedProject(null); }}
+      />
     )}
     <div className="max-w-7xl mx-auto space-y-6">
       {/* Header */}
@@ -183,7 +202,7 @@ export default function InvestmentsPage() {
       {!loading && !error && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {[
-            { label: 'Total Raised', value: fmt(totalRaised), icon: DollarSign, bg: 'bg-green-50', color: 'text-green-600' },
+            { label: 'Total Raised (USD)', value: totalRaisedUSD != null ? fmtCurrency(totalRaisedUSD, 'USD') : '—', icon: DollarSign, bg: 'bg-green-50', color: 'text-green-600' },
             { label: 'Total Investments', value: String(totalInvestors), icon: TrendingUp, bg: 'bg-blue-50', color: 'text-blue-600' },
             { label: 'Approved', value: String(totalConfirmed), icon: Users, bg: 'bg-orange-50', color: 'text-orange-600' },
           ].map(({ label, value, icon: Icon, bg, color }) => (
@@ -254,8 +273,13 @@ export default function InvestmentsPage() {
                         <span className="text-xs text-gray-500 flex-shrink-0">{pct}%</span>
                       </div>
                       <span className="text-xs text-gray-500">{project.investments.length} investor{project.investments.length !== 1 ? 's' : ''}</span>
-                      <span className="text-sm font-semibold text-gray-800">{fmt(project.totalRaised, project.currency)}</span>
-                      <span className="text-xs text-gray-400">of {fmt(project.fundingGoal, project.currency)}</span>
+                      <div className="text-right">
+                        <span className="text-sm font-semibold text-gray-800">{fmtCurrency(project.totalRaised, project.currency)}</span>
+                        {usdRates && project.currency !== 'USD' && (
+                          <p className="text-[10px] text-gray-400">≈ {fmtCurrency(convertCurrency(project.totalRaised, project.currency, 'USD', usdRates), 'USD')}</p>
+                        )}
+                      </div>
+                      <span className="text-xs text-gray-400">of {fmtCurrency(project.fundingGoal, project.currency)}</span>
                     </div>
                   </div>
                   {isOpen ? <ChevronDown size={16} className="text-gray-400 flex-shrink-0" /> : <ChevronRight size={16} className="text-gray-400 flex-shrink-0" />}
@@ -278,7 +302,7 @@ export default function InvestmentsPage() {
                         {project.investments.map((inv) => (
                           <tr
                             key={inv.id}
-                            onClick={() => setSelectedInvestment(inv)}
+                            onClick={() => { setSelectedInvestment(inv); setSelectedProject(project); }}
                             className="hover:bg-orange-50 transition-colors cursor-pointer"
                           >
                             <td className="px-5 py-3">
@@ -286,7 +310,12 @@ export default function InvestmentsPage() {
                               {inv.contactEmail && <div className="text-[11px] text-gray-400">{inv.contactEmail}</div>}
                               {inv.contactPhone && <div className="text-[11px] text-gray-400">{inv.contactPhone}</div>}
                             </td>
-                            <td className="px-5 py-3 font-semibold text-gray-800 text-xs">{fmt(Number(inv.amount), inv.currency)}</td>
+                            <td className="px-5 py-3 text-xs">
+                              <span className="font-semibold text-gray-800">{fmtCurrency(Number(inv.amount), inv.currency || project.currency)}</span>
+                              {usdRates && (inv.currency || project.currency) !== 'USD' && (
+                                <p className="text-[10px] text-gray-400 mt-0.5">≈ {fmtCurrency(convertCurrency(Number(inv.amount), inv.currency || project.currency, 'USD', usdRates), 'USD')}</p>
+                              )}
+                            </td>
                             <td className="px-5 py-3">
                               <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium capitalize ${STATUS_BADGE[inv.status] ?? 'bg-gray-100 text-gray-500'}`}>
                                 {inv.status}

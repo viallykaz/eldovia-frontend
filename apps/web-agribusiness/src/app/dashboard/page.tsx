@@ -10,14 +10,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/components/session-provider';
 import { getMyInvestments, type Investment } from '@/lib/api';
-
-const fmt = (n: number, currency = 'USD') => {
-  try {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency, maximumFractionDigits: 0 }).format(n);
-  } catch {
-    return `${currency} ${n.toLocaleString()}`;
-  }
-};
+import { fetchUSDRates, convertCurrency, fmtCurrency } from '@/lib/currency';
 
 const STATUS_COLORS: Record<string, { bg: string; border: string; color: string }> = {
   approved:  { bg: 'rgba(13,87,48,0.12)',  border: 'rgba(13,87,48,0.3)',  color: '#4ade80' },
@@ -30,7 +23,7 @@ const STATUS_COLORS: Record<string, { bg: string; border: string; color: string 
 
 type CardFilter = 'total_invested' | 'active' | 'projects' | null;
 
-function InvestmentDetailPanel({ investment, onClose }: { investment: Investment; onClose: () => void }) {
+function InvestmentDetailPanel({ investment, usdRates, onClose }: { investment: Investment; usdRates: Record<string, number> | null; onClose: () => void }) {
   const sc = STATUS_COLORS[investment.status?.toLowerCase()] ?? STATUS_COLORS.pending;
   return (
     <>
@@ -64,7 +57,12 @@ function InvestmentDetailPanel({ investment, onClose }: { investment: Investment
 
           <div>
             <p className="text-[10px] font-semibold text-gray-400 dark:text-white/30 uppercase tracking-wide mb-1">Amount Invested</p>
-            <p className="text-2xl font-bold text-gray-900 dark:text-white">{fmt(Number(investment.amount), investment.currency || 'USD')}</p>
+            <p className="text-2xl font-bold text-gray-900 dark:text-white">{fmtCurrency(Number(investment.amount), investment.currency)}</p>
+            {usdRates && investment.currency !== 'USD' && (
+              <p className="text-xs text-gray-400 dark:text-white/30 mt-0.5">
+                ≈ {fmtCurrency(convertCurrency(Number(investment.amount), investment.currency, 'USD', usdRates), 'USD')}
+              </p>
+            )}
           </div>
 
           {investment.notes && (
@@ -155,10 +153,15 @@ export default function DashboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedInvestment, setSelectedInvestment] = useState<Investment | null>(null);
   const [activeFilter, setActiveFilter] = useState<CardFilter>(null);
+  const [usdRates, setUsdRates] = useState<Record<string, number> | null>(null);
 
   useEffect(() => {
     if (!isLoading && !user) router.replace('/signin');
   }, [user, isLoading, router]);
+
+  useEffect(() => {
+    fetchUSDRates().then(setUsdRates).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -177,9 +180,13 @@ export default function DashboardPage() {
     );
   }
 
-  const totalInvested = investments
-    .filter((inv) => inv.status === 'approved')
-    .reduce((sum, inv) => sum + Number(inv.amount ?? 0), 0);
+  const approvedInvestments = investments.filter((inv) => inv.status === 'approved');
+  const totalInvestedUSD = usdRates
+    ? approvedInvestments.reduce(
+        (sum, inv) => sum + convertCurrency(Number(inv.amount ?? 0), inv.currency, 'USD', usdRates),
+        0,
+      )
+    : null;
   const activeCount = investments.filter(
     (inv) => ['active', 'confirmed', 'approved'].includes(inv.status?.toLowerCase()),
   ).length;
@@ -208,9 +215,9 @@ export default function DashboardPage() {
     {
       key: 'total_invested' as CardFilter,
       label: 'Total Invested',
-      value: fmt(totalInvested),
+      value: totalInvestedUSD != null ? fmtCurrency(totalInvestedUSD, 'USD') : '—',
       icon: <DollarSign size={18} style={{ color: '#22c55e' }} />,
-      sub: 'across approved investments',
+      sub: 'across approved investments (≈ USD)',
     },
     {
       key: 'active' as CardFilter,
@@ -231,7 +238,7 @@ export default function DashboardPage() {
   return (
     <>
       {selectedInvestment && (
-        <InvestmentDetailPanel investment={selectedInvestment} onClose={() => setSelectedInvestment(null)} />
+        <InvestmentDetailPanel investment={selectedInvestment} usdRates={usdRates} onClose={() => setSelectedInvestment(null)} />
       )}
       <main className="bg-white dark:bg-[#0C0C0C] min-h-screen pt-24 pb-20">
         <div className="mx-auto max-w-5xl px-6">
@@ -405,12 +412,13 @@ export default function DashboardPage() {
 
                       <div className="text-right shrink-0">
                         <div className="text-base font-bold text-gray-900 dark:text-white">
-                          {new Intl.NumberFormat('en-US', {
-                            style: 'currency',
-                            currency: inv.currency || 'USD',
-                            maximumFractionDigits: 0,
-                          }).format(inv.amount)}
+                          {fmtCurrency(Number(inv.amount), inv.currency)}
                         </div>
+                        {usdRates && inv.currency !== 'USD' && (
+                          <div className="text-[10px] text-gray-400 dark:text-white/30">
+                            ≈ {fmtCurrency(convertCurrency(Number(inv.amount), inv.currency, 'USD', usdRates), 'USD')}
+                          </div>
+                        )}
                         {inv.project?.slug && (
                           <Link
                             href={`/projects/${inv.project.slug}`}

@@ -53,27 +53,50 @@ pnpm clean    # Remove .next build artifacts and node_modules
 | App | URL | Status |
 |---|---|---|
 | Admin panel | http://localhost:3103 | Active |
+| Agribusiness portal | http://localhost:3102 | Active |
 | Main site | http://localhost:3100 | Planned |
 | Automobile portal | http://localhost:3101 | Planned |
-| Agribusiness portal | http://localhost:3102 | Planned |
 
 ## Admin Panel (`web-admin`)
 
-The admin panel is restricted to users with roles: `super_admin`, `group_admin`, `branch_admin`, or `manager`. Unauthorized users are blocked at login and redirected to `/unauthorized`.
+Restricted to users with roles: `super_admin`, `group_admin`, `branch_admin`, or `manager`. Unauthorized users are blocked at login and redirected to `/unauthorized`.
 
 ### Features
 
-- **Dashboard** — Platform-wide KPIs and charts (investors, projects, revenue)
+- **Dashboard** — Platform-wide KPIs (projects, users, partners, news)
 - **Projects** — Full CRUD; publish, archive, restore, and permanently delete projects; engagement stats (followers, likes, interests); filterable by status and deleted state
-- **Project Detail** — Edit project info, manage lifecycle phases with confirmation step, manage funding status, review and approve/reject investments, add investors directly
-- **Users** — Browse and manage platform users
-- **Investments** — Platform-wide investment review queue
-- **Analytics** — Business performance metrics
+- **Project Detail** — Edit project info; manage lifecycle phases (sequential, confirm-before-apply); manage funding status; review, approve, and reject investments; add investors directly
+- **Users** — Browse users, manage roles and account status
+- **Investments** — Platform-wide investment review queue; amounts shown in native currency with live USD equivalent
+- **Analytics** — Business performance metrics (projects, investments, funnel)
+
+### Currency handling
+
+All monetary amounts display in the currency the project or investment was created in. A live USD equivalent is shown for non-USD amounts using exchange rates fetched from `api.exchangerate-api.com` (free, no API key, rates cached for 1 hour). The aggregate "Total Raised" on the investments page converts all project totals to USD before summing.
 
 ### Environment
 
-The admin panel reads `NEXT_PUBLIC_API_URL` to locate the backend API gateway. Set it in `apps/web-admin/.env.local`:
+Set in `apps/web-admin/.env.local`:
 
 ```bash
 NEXT_PUBLIC_API_URL=http://localhost/api/v1
 ```
+
+## Agribusiness Investor Portal (`web-agribusiness`)
+
+Public-facing portal for investors. Authentication uses Firebase. API calls go directly to the backend at `http://localhost:3000` (configurable in `src/lib/api.ts`).
+
+### Pages
+
+- **Home** — Hero, featured projects, impact stats, CTA
+- **Projects** — Browse and filter all open agribusiness projects; follow projects
+- **Project Detail** — Full project info, lifecycle stage bar, funding card, photo gallery, reports, forum
+- **Invest** — Submit an investment expression of interest for a project
+- **Dashboard** — Investor's personal investment history; total invested (converted to USD via live rates); individual amounts shown in the currency invested
+- **Profile / Account** — Manage personal details
+- **News** — Platform news articles
+- **Partners, Impact, About, Contact** — Public informational pages
+
+### Environment
+
+Create `apps/web-agribusiness/.env.local` if you need to override any Firebase or API config. The API base URL is currently hardcoded in `src/lib/api.ts`.
