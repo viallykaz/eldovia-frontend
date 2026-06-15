@@ -1,0 +1,26 @@
+{
+  "name": "eldovia-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "dev:main": "pnpm --filter @eldovia/web-main dev",
+    "dev:auto": "pnpm --filter @eldovia/web-automobile dev",
+    "dev:agri": "pnpm --filter @eldovia/web-agribusiness dev",
+    "dev:admin": "pnpm --filter @eldovia/web-admin dev",
+    "lint": "turbo run lint",
+    "clean": "turbo run clean && rm -rf node_modules"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.0",
+    "prettier": "^3.4.0",
+    "turbo": "^2.3.0",
+    "typescript": "^5.7.0"
+  },
+  "packageManager": "pnpm@9.15.0"
+}

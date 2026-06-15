@@ -1,0 +1,85 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-inter: 'Inter', sans-serif;
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8fafc;
+  --text-primary: #0f172a;
+  --text-muted: #64748b;
+  --border-color: rgba(0, 0, 0, 0.08);
+  --scrollbar-track: #f1f5f9;
+  --scrollbar-thumb: rgba(249, 115, 22, 0.3);
+}
+
+.dark {
+  --bg-primary: #020B18;
+  --bg-secondary: #030d1a;
+  --text-primary: #ffffff;
+  --text-muted: rgba(255, 255, 255, 0.55);
+  --border-color: rgba(255, 255, 255, 0.08);
+  --scrollbar-track: #020B18;
+  --scrollbar-thumb: rgba(249, 115, 22, 0.4);
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+  body {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: var(--font-inter), system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--scrollbar-track);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+    border-radius: 3px;
+  }
+  ::selection {
+    background: rgba(249,115,22,0.25);
+    color: var(--text-primary);
+  }
+}
+
+@layer utilities {
+  .text-gradient-orange {
+    @apply bg-gradient-to-r from-orange-500 via-amber-400 to-orange-300 bg-clip-text text-transparent;
+  }
+  .text-gradient-blue {
+    @apply bg-gradient-to-r from-blue-400 via-azure-400 to-blue-300 bg-clip-text text-transparent;
+  }
+  .glass {
+    @apply bg-black/5 dark:bg-white/5 backdrop-blur-md border border-black/8 dark:border-white/10;
+  }
+  .glass-hover {
+    @apply hover:bg-black/8 dark:hover:bg-white/8 hover:border-black/10 dark:hover:border-white/15 transition-all duration-300;
+  }
+  .glow-orange {
+    box-shadow: 0 0 30px rgba(249,115,22,0.3), 0 0 60px rgba(249,115,22,0.1);
+  }
+  .animate-gradient {
+    background-size: 200% auto;
+    animation: gradient-x 4s ease infinite;
+  }
+  .live-dot {
+    @apply h-2 w-2 rounded-full bg-red-500 animate-pulse;
+    box-shadow: 0 0 6px rgba(239,68,68,0.8);
+  }
+  .bid-pulse {
+    animation: bid-flash 0.4s ease-out;
+  }
+}
+
+@keyframes bid-flash {
+  0% { background-color: rgba(249,115,22,0.3); }
+  100% { background-color: transparent; }
+}
